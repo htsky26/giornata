@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0f0f1a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Giornata</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0f0f1a;
+  --surface: #1a1a2e;
+  --surface2: #22223b;
+  --surface3: #2d2d4a;
+  --accent: #7c6ffa;
+  --accent2: #a78bfa;
+  --text: #f0eff8;
+  --text2: #9896b8;
+  --text3: #5c5a7a;
+  --border: rgba(255,255,255,0.08);
+  --radius: 16px;
+  --radius-sm: 10px;
+  --font: 'DM Sans', sans-serif;
+  --mono: 'DM Mono', monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font); overflow: hidden; }
+
+/* ── PIN SCREEN ── */
+#pin-screen {
+  position: fixed; inset: 0; background: var(--bg); z-index: 9999;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+.pin-logo { font-size: 44px; margin-bottom: 10px; }
+.pin-title { font-size: 22px; font-weight: 600; letter-spacing: -0.5px; margin-bottom: 4px; }
+.pin-sub { font-size: 13px; color: var(--text3); font-family: var(--mono); margin-bottom: 36px; }
+.pin-dots { display: flex; gap: 16px; margin-bottom: 32px; }
+.pin-dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--text3); transition: background 0.15s, border-color 0.15s; }
+.pin-dot.filled { background: var(--accent2); border-color: var(--accent2); }
+.pin-dot.error { background: #FF3B3B; border-color: #FF3B3B; }
+.pin-keypad { display: grid; grid-template-columns: repeat(3, 72px); gap: 12px; }
+.pin-key {
+  width: 72px; height: 72px; border-radius: 50%;
+  background: var(--surface2); border: 1px solid var(--border);
+  color: var(--text); font-size: 22px; font-weight: 500;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: background 0.12s, transform 0.1s; user-select: none;
+}
+.pin-key:active { background: var(--surface3); transform: scale(0.93); }
+.pin-key.del { font-size: 18px; color: var(--text2); }
+.pin-key.empty { background: transparent; border-color: transparent; pointer-events: none; }
+.pin-error-msg { margin-top: 20px; font-size: 13px; color: #FF3B3B; font-family: var(--mono); opacity: 0; transition: opacity 0.2s; }
+.pin-error-msg.show { opacity: 1; }
+
+/* ── APP SHELL ── */
+#app { display: flex; flex-direction: column; height: 100dvh; max-width: 430px; margin: 0 auto; }
+
+/* ── TOP BAR ── */
+.topbar { padding: 14px 20px 10px; display: flex; align-items: center; justify-content: space-between; background: var(--bg); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.topbar-title { font-size: 18px; font-weight: 600; letter-spacing: -0.3px; }
+.topbar-date { font-size: 12px; color: var(--text2); font-family: var(--mono); margin-top: 2px; }
+.topbar-right { display: flex; gap: 8px; }
+.icon-btn { width: 38px; height: 38px; border-radius: 50%; background: var(--surface2); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text2); font-size: 16px; transition: background 0.15s; }
+.icon-btn:active { background: var(--surface3); }
+
+/* ── VIEWS ── */
+.view { flex: 1; overflow-y: auto; display: none; flex-direction: column; }
+.view.active { display: flex; }
+
+/* ── CALENDAR ── */
+#view-cal { padding: 0 16px 16px; }
+.month-nav { display: flex; align-items: center; justify-content: space-between; padding: 14px 4px 10px; }
+.month-label { font-size: 16px; font-weight: 600; }
+.nav-btn { background: var(--surface2); border: 1px solid var(--border); color: var(--text2); width: 32px; height: 32px; border-radius: 50%; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.nav-btn:active { background: var(--surface3); }
+.weekdays { display: grid; grid-template-columns: repeat(7,1fr); text-align: center; font-size: 11px; color: var(--text3); font-family: var(--mono); padding-bottom: 6px; letter-spacing: 0.05em; }
+.cal-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 4px; }
+.cal-day { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 14px; font-weight: 500; cursor: pointer; position: relative; transition: background 0.15s; color: var(--text2); user-select: none; }
+.cal-day:active { background: var(--surface2); }
+.cal-day.other-month { color: var(--text3); }
+.cal-day.today { color: var(--accent2); font-weight: 600; }
+.cal-day.today::after { content:''; position:absolute; bottom:4px; left:50%; transform:translateX(-50%); width:4px; height:4px; border-radius:50%; background:var(--accent); }
+.cal-day.selected { background: var(--accent); color: white; }
+.cal-day.has-data::before { content:''; position:absolute; top:3px; right:3px; width:5px; height:5px; border-radius:50%; background:var(--accent2); opacity:0.6; }
+.cal-day.selected::before { display:none; }
+.upcoming-title { font-size: 13px; color: var(--text3); font-family: var(--mono); letter-spacing: 0.06em; margin: 18px 0 10px 4px; }
+.upcoming-item { display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: var(--surface); border-radius: var(--radius-sm); border: 1px solid var(--border); margin-bottom: 8px; cursor: pointer; transition: background 0.15s; }
+.upcoming-item:active { background: var(--surface2); }
+.upcoming-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.upcoming-info { flex: 1; }
+.upcoming-name { font-size: 14px; font-weight: 500; }
+.upcoming-meta { font-size: 12px; color: var(--text2); font-family: var(--mono); margin-top: 2px; }
+
+/* ── DAY VIEW ── */
+#view-day { padding: 0; }
+.day-header { padding: 14px 20px 12px; border-bottom: 1px solid var(--border); flex-shrink:0; }
+.day-header-date { font-size: 13px; color: var(--text3); font-family: var(--mono); }
+.day-header-title { font-size: 20px; font-weight: 600; letter-spacing: -0.3px; margin-top: 2px; }
+.day-body { flex: 1; overflow-y: auto; padding: 16px 16px 100px; }
+
+/* PIE */
+.pie-section { display: flex; gap: 16px; align-items: center; margin-bottom: 20px; }
+.pie-wrap { flex-shrink: 0; position: relative; width: 110px; height: 110px; }
+.pie-center { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); text-align:center; pointer-events:none; }
+.pie-center-h { font-size: 20px; font-weight: 600; }
+.pie-center-s { font-size: 10px; color: var(--text3); font-family: var(--mono); }
+.legend-list { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+.legend-item { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink:0; }
+.legend-name { flex: 1; color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.legend-val { font-family: var(--mono); font-size: 12px; color: var(--text3); }
+
+/* ACTIVITIES */
+.section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.section-label { font-size: 12px; color: var(--text3); font-family: var(--mono); letter-spacing: 0.06em; }
+.add-btn-sm { font-size: 12px; color: var(--accent2); font-family: var(--mono); background: rgba(124,111,250,0.12); border: none; cursor: pointer; padding: 5px 10px; border-radius: 20px; }
+.act-card { background: var(--surface); border-radius: var(--radius-sm); border: 1px solid var(--border); margin-bottom: 8px; overflow: hidden; transition: border-color 0.15s; }
+.act-card.editing { border-color: var(--accent); }
+.act-card-top { display: flex; align-items: center; gap: 10px; padding: 12px 14px; cursor: pointer; }
+.act-color-strip { width: 4px; height: 36px; border-radius: 2px; flex-shrink:0; }
+.act-info { flex: 1; min-width:0; }
+.act-name-display { font-size: 15px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.act-time-display { font-size: 12px; color: var(--text2); font-family: var(--mono); margin-top: 2px; }
+.act-duration { font-family: var(--mono); font-size: 13px; color: var(--text3); flex-shrink:0; }
+.act-expand { font-size: 16px; color: var(--text3); flex-shrink:0; transition: transform 0.2s; }
+.act-card.editing .act-expand { transform: rotate(180deg); }
+.act-edit-panel { padding: 0 14px 14px; display: none; border-top: 1px solid var(--border); }
+.act-card.editing .act-edit-panel { display: block; }
+.edit-row { display: flex; gap: 8px; margin-top: 10px; align-items: center; }
+.edit-label { font-size: 11px; color: var(--text3); font-family: var(--mono); min-width: 30px; }
+.edit-input { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: var(--mono); font-size: 13px; padding: 7px 10px; outline: none; flex: 1; }
+.edit-input:focus { border-color: var(--accent); }
+.edit-input[type=time]::-webkit-calendar-picker-indicator { filter: invert(0.6); }
+.del-act-btn { margin-top: 12px; width: 100%; padding: 8px; border-radius: 8px; background: rgba(226,75,74,0.12); border: 1px solid rgba(226,75,74,0.2); color: #e24b4a; font-size: 13px; cursor: pointer; font-family: var(--font); }
+.del-act-btn:active { background: rgba(226,75,74,0.25); }
+
+/* CATEGORY CHIPS */
+.cat-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 6px; margin-top: 6px; width: 100%; }
+.cat-chip { padding: 6px 4px; border-radius: 8px; font-size: 11px; text-align: center; cursor: pointer; border: 2px solid transparent; transition: border-color 0.15s, opacity 0.15s; opacity: 0.65; font-family: var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cat-chip.selected { border-color: currentColor; opacity: 1; }
+
+/* TIMELINE */
+.timeline-section { margin-top: 20px; }
+.timeline-bar { display: flex; height: 28px; border-radius: 8px; overflow: hidden; gap: 1px; margin-top: 8px; }
+.timeline-seg { height: 100%; }
+.timeline-labels { display: flex; justify-content: space-between; margin-top: 6px; }
+.timeline-lbl { font-size: 10px; color: var(--text3); font-family: var(--mono); }
+
+/* MODAL */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; display: flex; align-items: flex-end; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+.modal-overlay.open { opacity: 1; pointer-events: all; }
+.modal-sheet { background: var(--surface); border-radius: 24px 24px 0 0; padding: 20px 20px 40px; width: 100%; max-width: 430px; transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); border-top: 1px solid var(--border); max-height: 90dvh; overflow-y: auto; }
+.modal-overlay.open .modal-sheet { transform: translateY(0); }
+.modal-handle { width: 36px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto 18px; }
+.modal-title { font-size: 16px; font-weight: 600; margin-bottom: 16px; }
+.modal-field { margin-bottom: 12px; }
+.modal-field label { font-size: 11px; color: var(--text3); font-family: var(--mono); display: block; margin-bottom: 5px; letter-spacing: 0.05em; }
+.modal-input { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; color: var(--text); font-family: var(--font); font-size: 15px; padding: 10px 14px; outline: none; }
+.modal-input:focus { border-color: var(--accent); }
+.modal-input[type=time]::-webkit-calendar-picker-indicator { filter: invert(0.6); }
+.modal-row { display: flex; gap: 10px; }
+.modal-row .modal-field { flex: 1; }
+.modal-save { width: 100%; padding: 14px; border-radius: 12px; border: none; background: var(--accent); color: white; font-size: 16px; font-weight: 600; cursor: pointer; font-family: var(--font); margin-top: 8px; }
+.modal-save:active { opacity: 0.8; }
+
+/* CATEGORIES SETTINGS */
+#view-cats { padding: 16px; }
+.cats-header { font-size: 13px; color: var(--text3); font-family: var(--mono); letter-spacing: 0.06em; margin-bottom: 12px; }
+.cat-setting-row { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: var(--surface); border-radius: var(--radius-sm); border: 1px solid var(--border); margin-bottom: 8px; }
+.cat-color-ball { width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0; }
+.cat-name-input { flex: 1; background: transparent; border: none; color: var(--text); font-size: 14px; font-family: var(--font); outline: none; }
+.cat-name-input::placeholder { color: var(--text3); }
+
+/* BOTTOM NAV */
+.bottom-nav { display: flex; background: var(--surface); border-top: 1px solid var(--border); padding: 8px 0; padding-bottom: max(8px, env(safe-area-inset-bottom)); flex-shrink: 0; }
+.nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer; padding: 6px 0; color: var(--text3); font-size: 10px; font-family: var(--mono); transition: color 0.15s; }
+.nav-item svg { width: 22px; height: 22px; }
+.nav-item.active { color: var(--accent2); }
+
+::-webkit-scrollbar { width: 0; }
+</style>
+</head>
+<body>
+
+<!-- PIN -->
+<div id="pin-screen">
+  <div class="pin-logo">🗓</div>
+  <div class="pin-title">Giornata</div>
+  <div class="pin-sub">Inserisci il PIN</div>
+  <div class="pin-dots">
+    <div class="pin-dot" id="d0"></div><div class="pin-dot" id="d1"></div>
+    <div class="pin-dot" id="d2"></div><div class="pin-dot" id="d3"></div>
+  </div>
+  <div class="pin-keypad">
+    <div class="pin-key" onclick="pinPress('1')">1</div>
+    <div class="pin-key" onclick="pinPress('2')">2</div>
+    <div class="pin-key" onclick="pinPress('3')">3</div>
+    <div class="pin-key" onclick="pinPress('4')">4</div>
+    <div class="pin-key" onclick="pinPress('5')">5</div>
+    <div class="pin-key" onclick="pinPress('6')">6</div>
+    <div class="pin-key" onclick="pinPress('7')">7</div>
+    <div class="pin-key" onclick="pinPress('8')">8</div>
+    <div class="pin-key" onclick="pinPress('9')">9</div>
+    <div class="pin-key empty"></div>
+    <div class="pin-key" onclick="pinPress('0')">0</div>
+    <div class="pin-key del" onclick="pinDel()">⌫</div>
+  </div>
+  <div class="pin-error-msg" id="pin-error">PIN errato, riprova</div>
+</div>
+
+<!-- APP -->
+<div id="app" style="display:none">
+  <div class="topbar">
+    <div>
+      <div class="topbar-title" id="topbar-title">Giornata</div>
+      <div class="topbar-date" id="topbar-date"></div>
+    </div>
+    <div class="topbar-right">
+      <div class="icon-btn" id="today-btn">◎</div>
+      <div class="icon-btn" onclick="switchView('cats')">🎨</div>
+    </div>
+  </div>
+
+  <!-- CALENDAR VIEW -->
+  <div class="view active" id="view-cal">
+    <div class="month-nav">
+      <button class="nav-btn" id="prev-month">‹</button>
+      <div class="month-label" id="month-label"></div>
+      <button class="nav-btn" id="next-month">›</button>
+    </div>
+    <div class="weekdays"><div>LUN</div><div>MAR</div><div>MER</div><div>GIO</div><div>VEN</div><div>SAB</div><div>DOM</div></div>
+    <div class="cal-grid" id="cal-grid"></div>
+    <div class="upcoming-title">PROSSIME GIORNATE</div>
+    <div id="upcoming-list"></div>
+  </div>
+
+  <!-- DAY VIEW -->
+  <div class="view" id="view-day">
+    <div class="day-header">
+      <div class="day-header-date" id="dv-date"></div>
+      <div class="day-header-title" id="dv-title"></div>
+    </div>
+    <div class="day-body">
+      <div class="pie-section">
+        <div class="pie-wrap">
+          <canvas id="pieChart" width="110" height="110"></canvas>
+          <div class="pie-center"><div class="pie-center-h" id="pie-total-h">0h</div><div class="pie-center-s">/ 24h</div></div>
+        </div>
+        <div class="legend-list" id="pie-legend"></div>
+      </div>
+      <div class="timeline-section">
+        <div class="section-label">TIMELINE</div>
+        <div class="timeline-bar" id="timeline-bar"></div>
+        <div class="timeline-labels">
+          <span class="timeline-lbl">00:00</span><span class="timeline-lbl">06:00</span>
+          <span class="timeline-lbl">12:00</span><span class="timeline-lbl">18:00</span>
+          <span class="timeline-lbl">24:00</span>
+        </div>
+      </div>
+      <div class="section-head" style="margin-top:20px;">
+        <div class="section-label">ATTIVITÀ</div>
+        <button class="add-btn-sm" id="open-add-modal">+ AGGIUNGI</button>
+      </div>
+      <div id="activities-container"></div>
+    </div>
+  </div>
+
+  <!-- CATEGORIES VIEW -->
+  <div class="view" id="view-cats">
+    <div style="padding:16px 16px 0">
+      <div class="cats-header">12 CATEGORIE — tocca il nome per modificarlo</div>
+      <div id="cats-list"></div>
+    </div>
+  </div>
+
+  <nav class="bottom-nav">
+    <div class="nav-item active" id="nav-cal" onclick="switchView('cal')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="3"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg>
+      <span>Calendario</span>
+    </div>
+    <div class="nav-item" id="nav-day" onclick="switchView('day')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>
+      <span>Giornata</span>
+    </div>
+    <div class="nav-item" id="nav-cats" onclick="switchView('cats')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></svg>
+      <span>Categorie</span>
+    </div>
+  </nav>
+</div>
+
+<!-- ADD MODAL -->
+<div class="modal-overlay" id="add-modal">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Nuova attività</div>
+    <div class="modal-field">
+      <label>NOME</label>
+      <input class="modal-input" id="m-name" placeholder="es. Sport, Riunione..." maxlength="30">
+    </div>
+    <div class="modal-row">
+      <div class="modal-field"><label>DA</label><input class="modal-input" id="m-from" type="time" value="09:00"></div>
+      <div class="modal-field"><label>A</label><input class="modal-input" id="m-to" type="time" value="10:00"></div>
+    </div>
+    <div class="modal-field">
+      <label>CATEGORIA</label>
+      <div class="cat-grid" id="modal-cat-grid"></div>
+    </div>
+    <button class="modal-save" id="modal-save-btn">Salva attività</button>
+  </div>
+</div>
+
+<script>
+// ── CONSTANTS ──────────────────────────────────────────────────────────────
+const PIN = '2626';
+const CAT_COLORS = [
+  '#FF3B3B','#FF8C00','#FFD600','#7ED321','#1DB954','#00C9A7',
+  '#00B4D8','#2979FF','#5C6BC0','#9C27B0','#E91E8C','#FF6B81'
+];
+const DEFAULT_CAT_NAMES = [
+  'Lavoro','Sonno','Pasti','Sport','Famiglia','Salute',
+  'Svago','Studio','Casa','Sociale','Viaggi','Altro'
+];
+const DAYS_IT = ['Domenica','Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato'];
+const MONTHS_IT = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+const MONTHS_SHORT = ['GEN','FEB','MAR','APR','MAG','GIU','LUG','AGO','SET','OTT','NOV','DIC'];
+
+// ── STATE ──────────────────────────────────────────────────────────────────
+let data = {};
+let categories = [];
+let currentDay = null;
+let calMonth = new Date();
+let selectedCatIdx = 0;
+
+// ── UTILS ──────────────────────────────────────────────────────────────────
+function fmtKey(d) {
+  return d.getFullYear() + '-' +
+    String(d.getMonth()+1).padStart(2,'0') + '-' +
+    String(d.getDate()).padStart(2,'0');
+}
+function todayKey() { return fmtKey(new Date()); }
+// Safe date from key — use noon to avoid DST issues
+function dateFromKey(k) { return new Date(k + 'T12:00:00'); }
+function parseTime(t) {
+  if (!t) return 0;
+  const [h,m] = t.split(':').map(Number);
+  return h + (m||0)/60;
+}
+function fmtDuration(h) {
+  const t = Math.max(0,h);
+  const hh = Math.floor(t), mm = Math.round((t-hh)*60);
+  return mm ? `${hh}h ${mm}m` : `${hh}h`;
+}
+function uid() { return Math.random().toString(36).slice(2,9); }
+function isWeekend(key) { const d = dateFromKey(key); return d.getDay()===0||d.getDay()===6; }
+function catColor(idx) { return (categories[idx]||{color:'#888'}).color; }
+function catName(idx) { return (categories[idx]||{name:'?'}).name; }
+
+function save() {
+  try { localStorage.setItem('gd2_data', JSON.stringify(data)); } catch(e){}
+  try { localStorage.setItem('gd2_cats', JSON.stringify(categories)); } catch(e){}
+}
+function load() {
+  try { const d=localStorage.getItem('gd2_data'); if(d) data=JSON.parse(d); } catch(e){}
+  try { const c=localStorage.getItem('gd2_cats'); if(c) categories=JSON.parse(c); } catch(e){}
+  if (!categories||categories.length!==12) {
+    categories = CAT_COLORS.map((color,i)=>({name:DEFAULT_CAT_NAMES[i],color}));
+  }
+}
+
+// ── DEFAULT ACTS ───────────────────────────────────────────────────────────
+// Cat: 0=Lavoro 1=Sonno 2=Pasti
+function buildDefaultActs(key) {
+  const wknd = isWeekend(key);
+  const acts = [
+    { id:uid(), name:catName(1), from:'00:00', to:'07:00', catIdx:1 },
+  ];
+  if (!wknd) {
+    acts.push({ id:uid(), name:catName(0), from:'08:00', to:'13:00', catIdx:0 });
+  }
+  acts.push({ id:uid(), name:catName(2), from:'13:00', to:'14:00', catIdx:2 });
+  if (!wknd) {
+    acts.push({ id:uid(), name:catName(0), from:'14:00', to:'17:00', catIdx:0 });
+  }
+  acts.push({ id:uid(), name:catName(2), from:'20:00', to:'21:00', catIdx:2 });
+  acts.push({ id:uid(), name:catName(1), from:'23:30', to:'24:00', catIdx:1 });
+  return acts;
+}
+
+function ensureDay(key) {
+  if (!data[key]) { data[key] = buildDefaultActs(key); save(); }
+}
+
+// ── PIN ────────────────────────────────────────────────────────────────────
+let pinEntry = '';
+function pinPress(digit) {
+  if (pinEntry.length >= 4) return;
+  pinEntry += digit;
+  updatePinDots();
+  if (pinEntry.length === 4) {
+    setTimeout(() => {
+      if (pinEntry === PIN) {
+        document.getElementById('pin-screen').style.display = 'none';
+        document.getElementById('app').style.display = 'flex';
+        init();
+      } else {
+        document.querySelectorAll('.pin-dot').forEach(d=>d.classList.add('error'));
+        document.getElementById('pin-error').classList.add('show');
+        setTimeout(() => {
+          pinEntry = '';
+          document.querySelectorAll('.pin-dot').forEach(d=>d.classList.remove('filled','error'));
+          document.getElementById('pin-error').classList.remove('show');
+        }, 900);
+      }
+    }, 80);
+  }
+}
+function pinDel() {
+  if (!pinEntry.length) return;
+  pinEntry = pinEntry.slice(0,-1);
+  updatePinDots();
+}
+function updatePinDots() {
+  for (let i=0;i<4;i++) document.getElementById('d'+i).classList.toggle('filled', i<pinEntry.length);
+}
+
+// ── CALENDAR ───────────────────────────────────────────────────────────────
+function renderCalendar() {
+  const y = calMonth.getFullYear(), m = calMonth.getMonth();
+  document.getElementById('month-label').textContent = `${MONTHS_IT[m]} ${y}`;
+  const grid = document.getElementById('cal-grid');
+  const firstDay = new Date(y, m, 1);
+  const startOffset = (firstDay.getDay()+6)%7; // Mon=0
+  const daysInMonth = new Date(y,m+1,0).getDate();
+  const daysInPrev  = new Date(y,m,0).getDate();
+  const todayStr = fmtKey(new Date());
+  let html = '';
+
+  // prev month padding
+  for (let i=startOffset-1;i>=0;i--) {
+    const day = daysInPrev - i;
+    const k = fmtKey(new Date(y,m-1,day,12,0,0));
+    html += `<div class="cal-day other-month${data[k]?.length?' has-data':''}" data-key="${k}">${day}</div>`;
+  }
+  // current month
+  for (let dd=1;dd<=daysInMonth;dd++) {
+    const k = fmtKey(new Date(y,m,dd,12,0,0));
+    const isToday = k===todayStr;
+    const isSel   = k===currentDay;
+    const hasd    = data[k]?.length>0;
+    let cls = 'cal-day';
+    if (isToday) cls += ' today';
+    if (isSel)   cls += ' selected';
+    if (hasd && !isSel) cls += ' has-data';
+    html += `<div class="${cls}" data-key="${k}">${dd}</div>`;
+  }
+  // next month padding
+  const total = startOffset + daysInMonth;
+  const remain = total%7===0 ? 0 : 7-(total%7);
+  for (let i=1;i<=remain;i++) {
+    const k = fmtKey(new Date(y,m+1,i,12,0,0));
+    html += `<div class="cal-day other-month${data[k]?.length?' has-data':''}" data-key="${k}">${i}</div>`;
+  }
+
+  grid.innerHTML = html;
+  grid.querySelectorAll('.cal-day').forEach(el => {
+    el.addEventListener('click', () => openDay(el.dataset.key));
+  });
+  renderUpcoming();
+}
+
+function renderUpcoming() {
+  const ul = document.getElementById('upcoming-list');
+  const todayStr = fmtKey(new Date());
+  const keys = Object.keys(data)
+    .filter(k => k>=todayStr && data[k]?.length>0)
+    .sort().slice(0,5);
+  if (!keys.length) {
+    ul.innerHTML = '<div style="font-size:13px;color:var(--text3);padding:8px 4px;">Nessuna giornata pianificata</div>';
+    return;
+  }
+  ul.innerHTML = keys.map(k => {
+    const d = dateFromKey(k);
+    const acts = data[k];
+    const uniq = [...new Set(acts.map(a=>a.catIdx))].slice(0,3);
+    return `<div class="upcoming-item" onclick="openDay('${k}')">
+      <div style="display:flex;flex-direction:column;gap:4px">${uniq.map(ci=>`<div class="upcoming-dot" style="background:${catColor(ci)}"></div>`).join('')}</div>
+      <div class="upcoming-info">
+        <div class="upcoming-name">${DAYS_IT[d.getDay()]}, ${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}</div>
+        <div class="upcoming-meta">${acts.length} attività</div>
+      </div>
+      <div style="color:var(--text3);font-size:16px">›</div>
+    </div>`;
+  }).join('');
+}
+
+function openDay(key) {
+  currentDay = key;
+  ensureDay(key);
+  const d = dateFromKey(key);
+  document.getElementById('dv-date').textContent = MONTHS_IT[d.getMonth()] + ' ' + d.getFullYear();
+  document.getElementById('dv-title').textContent = DAYS_IT[d.getDay()] + ' ' + d.getDate();
+  renderDayView();
+  switchView('day');
+  renderCalendar();
+}
+
+// ── DAY VIEW ───────────────────────────────────────────────────────────────
+function renderDayView() {
+  if (!currentDay) return;
+  const acts = sorted(data[currentDay]||[]);
+  renderPie(acts);
+  renderTimeline(acts);
+  renderActivityCards(acts);
+}
+function sorted(arr) { return arr.slice().sort((a,b)=>parseTime(a.from)-parseTime(b.from)); }
+
+function renderPie(acts) {
+  const cv = document.getElementById('pieChart');
+  const ctx = cv.getContext('2d');
+  const size=110, cx=55, cy=55, R=46, r=30;
+  ctx.clearRect(0,0,size,size);
+  const totalH = acts.reduce((s,a)=>s+Math.max(0,parseTime(a.to)-parseTime(a.from)),0);
+  document.getElementById('pie-total-h').textContent = fmtDuration(totalH);
+  const rem = Math.max(0,24-totalH);
+  const segs = acts.map(a=>({color:catColor(a.catIdx),h:Math.max(0,parseTime(a.to)-parseTime(a.from)),name:a.name}));
+  if (rem>0.05) segs.push({color:'#2d2d4a',h:rem,name:''});
+  const tot = segs.reduce((s,a)=>s+a.h,0)||1;
+  let angle = -Math.PI/2;
+  segs.forEach(seg=>{
+    const sweep=(seg.h/tot)*Math.PI*2;
+    ctx.beginPath();
+    ctx.moveTo(cx+r*Math.cos(angle),cy+r*Math.sin(angle));
+    ctx.arc(cx,cy,R,angle,angle+sweep);
+    ctx.arc(cx,cy,r,angle+sweep,angle,true);
+    ctx.closePath(); ctx.fillStyle=seg.color; ctx.fill();
+    angle+=sweep;
+  });
+  document.getElementById('pie-legend').innerHTML = acts.slice(0,5).map(a=>{
+    const h=Math.max(0,parseTime(a.to)-parseTime(a.from));
+    return `<div class="legend-item"><div class="legend-dot" style="background:${catColor(a.catIdx)}"></div><div class="legend-name">${a.name}</div><div class="legend-val">${fmtDuration(h)}</div></div>`;
+  }).join('')+(acts.length>5?`<div class="legend-item"><div class="legend-name" style="color:var(--text3)">+${acts.length-5} altre</div></div>`:'');
+}
+
+function renderTimeline(acts) {
+  const bar = document.getElementById('timeline-bar');
+  if (!acts.length){bar.innerHTML=`<div class="timeline-seg" style="flex:24;background:var(--surface2)"></div>`;return;}
+  let segs=[],cursor=0;
+  sorted(acts).forEach(a=>{
+    const s=parseTime(a.from),e=parseTime(a.to);
+    if(s>cursor) segs.push({color:'var(--surface2)',w:s-cursor});
+    if(e>s) segs.push({color:catColor(a.catIdx),w:e-s});
+    cursor=Math.max(cursor,e);
+  });
+  if(cursor<24) segs.push({color:'var(--surface2)',w:24-cursor});
+  bar.innerHTML=segs.map(s=>`<div class="timeline-seg" style="flex:${s.w};background:${s.color};min-width:2px"></div>`).join('');
+}
+
+function renderActivityCards(acts) {
+  const container = document.getElementById('activities-container');
+  if (!acts.length) {
+    container.innerHTML='<div style="text-align:center;padding:32px;color:var(--text3);font-size:14px;">Nessuna attività<br><span style="font-size:12px;font-family:var(--mono)">Premi + AGGIUNGI</span></div>';
+    return;
+  }
+  container.innerHTML = sorted(acts).map(a => {
+    const h = Math.max(0,parseTime(a.to)-parseTime(a.from));
+    const color = catColor(a.catIdx);
+    const chips = categories.map((cat,ci)=>{
+      const sel = ci===a.catIdx;
+      return `<div class="cat-chip${sel?' selected':''}" style="background:${cat.color}22;color:${cat.color};${sel?'border-color:'+cat.color+';opacity:1':''}" onclick="updateAct('${a.id}','catIdx',${ci})">${cat.name}</div>`;
+    }).join('');
+    return `<div class="act-card" id="card-${a.id}">
+      <div class="act-card-top" onclick="toggleCard('${a.id}')">
+        <div class="act-color-strip" style="background:${color}"></div>
+        <div class="act-info">
+          <div class="act-name-display">${a.name}</div>
+          <div class="act-time-display">${a.from} → ${a.to}</div>
+        </div>
+        <div class="act-duration">${fmtDuration(h)}</div>
+        <div class="act-expand">⌄</div>
+      </div>
+      <div class="act-edit-panel">
+        <div class="edit-row">
+          <div class="edit-label">Nome</div>
+          <input class="edit-input" value="${a.name}" oninput="updateAct('${a.id}','name',this.value)">
+        </div>
+        <div class="edit-row">
+          <div class="edit-label">Da</div>
+          <input class="edit-input" type="time" value="${a.from}" oninput="updateAct('${a.id}','from',this.value)">
+          <div class="edit-label" style="text-align:center">A</div>
+          <input class="edit-input" type="time" value="${a.to}" oninput="updateAct('${a.id}','to',this.value)">
+        </div>
+        <div class="edit-row" style="flex-direction:column;align-items:flex-start">
+          <div class="edit-label" style="margin-bottom:4px">Categoria</div>
+          <div class="cat-grid">${chips}</div>
+        </div>
+        <button class="del-act-btn" onclick="deleteAct('${a.id}')">Elimina attività</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleCard(id){ document.getElementById('card-'+id)?.classList.toggle('editing'); }
+
+function updateAct(id, field, val) {
+  if (!currentDay||!data[currentDay]) return;
+  const act = data[currentDay].find(a=>a.id===id);
+  if (!act) return;
+  act[field] = field==='catIdx' ? Number(val) : val;
+  save();
+  const acts = sorted(data[currentDay]||[]);
+  renderPie(acts); renderTimeline(acts);
+  const card = document.getElementById('card-'+id);
+  if (card) {
+    const h=Math.max(0,parseTime(act.to)-parseTime(act.from));
+    const color=catColor(act.catIdx);
+    const dur=card.querySelector('.act-duration');
+    const timeD=card.querySelector('.act-time-display');
+    const strip=card.querySelector('.act-color-strip');
+    if(dur) dur.textContent=fmtDuration(h);
+    if(timeD) timeD.textContent=`${act.from} → ${act.to}`;
+    if(strip) strip.style.background=color;
+    card.querySelectorAll('.cat-chip').forEach((el,ci)=>{
+      const sel=ci===act.catIdx;
+      el.classList.toggle('selected',sel);
+      el.style.borderColor=sel?categories[ci].color:'transparent';
+      el.style.opacity=sel?'1':'0.65';
+    });
+  }
+}
+
+function deleteAct(id) {
+  if (!currentDay||!data[currentDay]) return;
+  data[currentDay]=data[currentDay].filter(a=>a.id!==id);
+  save(); renderDayView();
+}
+
+// ── CATEGORIES VIEW ────────────────────────────────────────────────────────
+function renderCatsView() {
+  document.getElementById('cats-list').innerHTML = categories.map((cat,i)=>`
+    <div class="cat-setting-row">
+      <div class="cat-color-ball" style="background:${cat.color}"></div>
+      <input class="cat-name-input" value="${cat.name}" placeholder="Categoria ${i+1}" maxlength="16"
+        oninput="updateCatName(${i},this.value)">
+    </div>`).join('');
+}
+function updateCatName(i,val){ categories[i].name=val; save(); }
+
+// ── ADD MODAL ──────────────────────────────────────────────────────────────
+function renderModalCatGrid(){
+  document.getElementById('modal-cat-grid').innerHTML=categories.map((cat,i)=>{
+    const sel=i===selectedCatIdx;
+    return `<div class="cat-chip${sel?' selected':''}" style="background:${cat.color}22;color:${cat.color};${sel?'border-color:'+cat.color+';opacity:1':''}" onclick="selectCat(${i})">${cat.name}</div>`;
+  }).join('');
+}
+function selectCat(i){ selectedCatIdx=i; renderModalCatGrid(); }
+
+document.getElementById('open-add-modal').onclick = ()=>{
+  renderModalCatGrid();
+  document.getElementById('m-name').value='';
+  document.getElementById('add-modal').classList.add('open');
+};
+document.getElementById('add-modal').onclick = e=>{
+  if(e.target===document.getElementById('add-modal')) document.getElementById('add-modal').classList.remove('open');
+};
+document.getElementById('modal-save-btn').onclick = ()=>{
+  const name=document.getElementById('m-name').value.trim();
+  if(!name){document.getElementById('m-name').focus();return;}
+  const from=document.getElementById('m-from').value;
+  const to=document.getElementById('m-to').value;
+  if(!currentDay) return;
+  if(!data[currentDay]) data[currentDay]=[];
+  data[currentDay].push({id:uid(),name,from,to,catIdx:selectedCatIdx});
+  save(); renderDayView(); renderCalendar();
+  document.getElementById('add-modal').classList.remove('open');
+};
+
+// ── NAV ────────────────────────────────────────────────────────────────────
+function switchView(v){
+  document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active'));
+  document.getElementById('view-'+v).classList.add('active');
+  document.getElementById('nav-'+v).classList.add('active');
+  if(v==='cal'){
+    document.getElementById('topbar-title').textContent='Giornata';
+    document.getElementById('topbar-date').textContent='';
+  } else if(v==='day' && currentDay){
+    const d=dateFromKey(currentDay);
+    document.getElementById('topbar-title').textContent=DAYS_IT[d.getDay()];
+    document.getElementById('topbar-date').textContent=`${d.getDate()} ${MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()}`;
+  } else if(v==='cats'){
+    document.getElementById('topbar-title').textContent='Categorie';
+    document.getElementById('topbar-date').textContent='';
+    renderCatsView();
+  }
+}
+
+document.getElementById('prev-month').onclick=()=>{calMonth.setMonth(calMonth.getMonth()-1);renderCalendar();};
+document.getElementById('next-month').onclick=()=>{calMonth.setMonth(calMonth.getMonth()+1);renderCalendar();};
+document.getElementById('today-btn').onclick=()=>{calMonth=new Date();openDay(todayKey());};
+
+// ── INIT ───────────────────────────────────────────────────────────────────
+function init(){
+  load();
+  const today=todayKey();
+  ensureDay(today);
+  currentDay=today;
+  const d=new Date();
+  document.getElementById('topbar-date').textContent=`${d.getDate()} ${MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()}`;
+  renderCalendar();
+  openDay(today);
+}
+</script>
+</body>
+</html>
